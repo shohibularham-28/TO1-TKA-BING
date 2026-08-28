@@ -390,6 +390,84 @@
 
   .gate-error{ color:#ff8c82; font-size:13px; min-height:18px; margin-bottom:6px; font-family:'JetBrains Mono',monospace; }
   .gate-card .primary{width:100%; margin-top:6px;}
+  .gate-notice{ color:#c9c6da; font-size:12.5px; margin:-8px 0 16px; line-height:1.5; }
+  .gate-notice b{ color:#ff9f8f; }
+
+  /* Exam rules consent popup */
+  .rules-modal{
+    position:fixed; inset:0; z-index:400; background:rgba(15, 18, 30, 0.8);
+    display:none; align-items:center; justify-content:center; padding:20px;
+    backdrop-filter: blur(4px);
+  }
+  .rules-modal.show{ display:flex; }
+  .rules-card{
+    background:var(--paper-card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 26px 22px; max-width:460px; width:100%;
+    box-shadow:0 20px 30px -5px rgba(0,0,0,.35);
+    text-align:left;
+  }
+  .rules-card .ricon{ font-size:34px; margin-bottom:8px; text-align:center; }
+  .rules-card h2{ font-size:19px; font-weight:700; color:var(--navy); margin-bottom:12px; text-align:center; }
+  .rules-card ul{ margin:0 0 16px; padding-left:20px; }
+  .rules-card li{ color:var(--ink); font-size:13.5px; line-height:1.6; margin-bottom:6px; }
+  .rules-card li b{ color:var(--bad); }
+  .rules-agree{
+    display:flex; align-items:flex-start; gap:9px; background:var(--bad-bg);
+    border:1px solid var(--bad); border-radius:10px; padding:10px 12px; margin-bottom:16px;
+    cursor:pointer;
+  }
+  .rules-agree input{ margin-top:3px; width:16px; height:16px; flex-shrink:0; accent-color:var(--bad); }
+  .rules-agree span{ font-size:13px; color:#4a3530; line-height:1.5; }
+  .rules-card button{
+    width:100%; padding:12px 16px; font-size:14.5px; font-weight:700; border-radius:99px;
+    border:none; cursor:pointer; font-family:'Inter',sans-serif;
+    background:var(--navy); color:#fff; transition:opacity .15s;
+  }
+  .rules-card button:disabled{ opacity:.4; cursor:not-allowed; }
+  .rules-card button:not(:disabled):hover{ opacity:.9; }
+
+  /* Violation / anti-cheat */
+  .violation-modal{
+    position:fixed; inset:0; z-index:300; background:rgba(140,20,20,.55);
+    display:none; align-items:center; justify-content:center; padding:20px;
+    backdrop-filter: blur(4px);
+  }
+  .violation-modal.show{ display:flex; }
+  .violation-card{
+    background:#fff; border:2px solid var(--bad); border-radius:16px;
+    padding:26px 24px; max-width:420px; width:100%; text-align:center;
+    box-shadow:0 20px 30px -5px rgba(0,0,0,.3);
+    animation:shake .4s ease;
+  }
+  @keyframes shake{
+    0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);} 60%{transform:translateX(-6px);} 80%{transform:translateX(6px);}
+  }
+  .violation-card .vicon{font-size:40px; margin-bottom:8px;}
+  .violation-card h2{ font-size:19px; font-weight:700; color:var(--bad); margin-bottom:8px; }
+  .violation-card p{ font-size:14px; color:#4a3530; margin-bottom:6px; line-height:1.5; }
+  .violation-card .vcount{
+    font-family:'JetBrains Mono',monospace; font-weight:700; font-size:15px;
+    color:var(--bad); background:var(--bad-bg); border-radius:8px; padding:6px 10px; display:inline-block; margin:8px 0 16px;
+  }
+  .violation-card button{
+    width:100%; padding:11px 16px; font-size:14.5px; border-radius:99px; font-weight:700;
+    cursor:pointer; font-family:'Inter',sans-serif; background:var(--bad); border:none; color:#fff;
+  }
+  .violation-card button:hover{background:#b8392e;}
+  .violation-card .violation-end-btn{
+    background:transparent; border:1px solid #d8b6b1; color:#8a5a53;
+    margin-top:8px; font-weight:600;
+  }
+  .violation-card .violation-end-btn:hover{ background:rgba(140,20,20,.08); }
+
+  .violation-badge{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:700;
+    padding:6px 12px; border-radius:99px; white-space:nowrap;
+    background:var(--bad-bg); border:1px solid var(--bad); color:var(--bad);
+    display:none; align-items:center; gap:6px;
+  }
+  .violation-badge.show{ display:flex; }
 </style>
 </head>
 <body>
@@ -399,6 +477,7 @@
     <div class="eyebrow">SMA Negeri 1 Sumpiuh</div>
     <h1>TRY OUT 1<br>BAHASA INGGRIS WAJIB</h1>
     <p class="desc">SMA Negeri 1 Sumpiuh<br>oleh MGMPS Bahasa Inggris</p>
+    <p class="gate-notice">⚠️ <b>Ujian ini diawasi.</b> Peraturan ujian akan ditampilkan setelah kamu klik Mulai Ujian.</p>
     <div class="gate-field">
       <label for="gateName">Name</label>
       <input id="gateName" type="text" placeholder="Write your full name" autocomplete="off">
@@ -416,14 +495,45 @@
   </div>
 </div>
 
-<!-- Modal Konfirmasi Submit -->
+<!-- Popup Peraturan & Persetujuan Ujian (muncul setelah klik Start Exam) -->
+<div id="rulesModal" class="rules-modal">
+  <div class="rules-card">
+    <div class="ricon">⚠️</div>
+    <h2>Peraturan Ujian — Harap Dibaca</h2>
+    <ul>
+      <li>Tetap dalam <b>mode fullscreen (layar penuh)</b> dan di tab ini selama ujian berlangsung.</li>
+      <li>Berpindah tab/aplikasi atau keluar dari fullscreen akan memicu <b>alarm + popup peringatan</b>.</li>
+      <li>Setiap pelanggaran mengurangi <b>2 poin</b> dari nilai akhir. Pelanggaran bersifat akumulatif — <b>tidak dihapus/diampuni</b>.</li>
+      <li>Ujian <b>TIDAK</b> akan otomatis dikirim karena pelanggaran — kamu tetap bisa lanjut mengerjakan, hanya saja nilai berkurang.</li>
+      <li>Jika keluar dari fullscreen, gunakan tombol <b>"⛶ Fullscreen"</b> di bagian atas untuk kembali.</li>
+    </ul>
+    <label class="rules-agree">
+      <input type="checkbox" id="rulesAgreeCheck">
+      <span>Saya telah membaca dan memahami peraturan di atas, dan saya setuju untuk mematuhinya selama ujian ini.</span>
+    </label>
+    <button type="button" id="rulesStartBtn" disabled>Mulai Ujian</button>
+  </div>
+</div>
+
+
+<!-- Modal Peringatan Pelanggaran (tab/aplikasi lain) -->
+<div id="violationModal" class="violation-modal">
+  <div class="violation-card">
+    <div class="vicon">⚠️</div>
+    <h2>Terdeteksi Pelanggaran!</h2>
+    <p id="violationMsg">Kamu meninggalkan layar ujian (berpindah tab/aplikasi, atau keluar dari fullscreen).</p>
+    <div class="vcount" id="violationCount">Pelanggaran 1 — Nilai -2</div>
+    <button type="button" id="violationOkBtn">Saya Mengerti — Kembali ke Ujian</button>
+    <button type="button" id="violationEndBtn" class="violation-end-btn">Sudahi Ujian</button>
+  </div>
+</div>
 <div id="confirmModal" class="confirm-modal">
   <div class="confirm-card">
-    <h2>Submit Exam Confirmation</h2>
-    <p id="confirmMsg">Are you sure you want to submit your answers? You cannot change them after submission.</p>
+    <h2 id="confirmTitle">Konfirmasi Submit Ujian</h2>
+    <p id="confirmMsg">Apakah kamu yakin ingin mengirim jawabanmu? Jawaban tidak bisa diubah lagi setelah dikirim.</p>
     <div class="confirm-actions">
-      <button type="button" class="btn-cancel" id="cancelSubmitBtn">Cancel</button>
-      <button type="button" class="btn-confirm" id="confirmSubmitBtn">Yes, Submit Now</button>
+      <button type="button" class="btn-cancel" id="cancelSubmitBtn">Batal</button>
+      <button type="button" class="btn-confirm" id="confirmSubmitBtn">Ya, Kirim Sekarang</button>
     </div>
   </div>
 </div>
@@ -437,6 +547,8 @@
   <div class="wrap progress-inner">
     <button type="button" class="palette-toggle" id="backToLoginBtn"><span>&larr; Login Menu</span></button>
     <div class="online-badge online" id="onlineBadge"><span class="online-dot"></span>Online</div>
+    <div class="violation-badge" id="violationBadge">⚠️ 0 (-0)</div>
+    <button type="button" class="palette-toggle" id="fullscreenBtn" style="display:none;"><span>⛶ Layar Penuh</span></button>
     <div class="timer-badge" id="timerBadge">90:00</div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="progress-label" id="progressLabel">0 / 30 answered</div>
@@ -447,8 +559,6 @@
       <div class="palette-legend">
         <span><span class="legend-dot" style="background:#fff;border:1.5px solid var(--line);"></span>Not answered</span>
         <span><span class="legend-dot" style="background:#eef0fb;border:1.5px solid #c9cdf0;"></span>Answered</span>
-        <span><span class="legend-dot" style="background:var(--good-bg);border:1.5px solid var(--good);"></span>Correct (after check)</span>
-        <span><span class="legend-dot" style="background:var(--bad-bg);border:1.5px solid var(--bad);"></span>Wrong (after check)</span>
       </div>
       <div class="palette-grid" id="paletteGrid"></div>
     </div>
@@ -457,9 +567,9 @@
 
 <div class="wrap">
   <div id="resultsBox" class="results">
-    <div class="score-big" id="scoreBig">0%</div>
-    <div class="score-sub" id="scoreSub">0 out of 0 points correct</div>
-    <div class="score-msg" id="scoreMsg">—</div>
+    <div class="score-big" id="scoreBig">0</div>
+    <div class="score-sub" id="scoreSub">Nilai Akhir (0-100)</div>
+    <div class="score-msg" id="scoreMsg">Well done!</div>
     <div class="submit-row">
       <div class="send-note" id="sendNote"></div>
       <button class="ghost retry-send" id="retrySendBtn" type="button" style="display:none;">Try Sending Again</button>
@@ -471,7 +581,7 @@
 
 <div class="nav-bar">
   <div class="wrap nav-inner">
-    <button class="ghost" id="resetBtn" type="button">Reset</button>
+    <button class="ghost" id="resetBtn" type="button" style="display:none;">Reset</button>
     <button class="navbtn" id="prevBtn" type="button">&larr; Prev</button>
     <button class="navbtn" id="nextBtn" type="button">Next &rarr;</button>
     <button class="primary" id="submitBtn" type="button">Submit</button>
@@ -988,73 +1098,28 @@ function refreshOptionSelection(q, card){
 }
 
 function applyGradingToCard(q, card, note){
-  const result = computeResult(q);
-
+  // Lock the answers after submission, without revealing correct/incorrect results.
   if(q.type==='single' || q.type==='multi'){
-    card.classList.add(result.correct?'correct':'incorrect');
     card.querySelectorAll('.opt').forEach(lbl=>{
-      const key = lbl.dataset.key;
-      lbl.classList.remove('selected');
       lbl.querySelector('input').disabled = true;
       lbl.classList.add('locked');
-      const tag = lbl.querySelector('.tag');
-      const isCorrectKey = q.type==='single' ? key===q.correct : q.correct.includes(key);
-      const wasChosen = q.type==='single' ? key===answers[q.id] : (answers[q.id]||[]).includes(key);
-      if(isCorrectKey){
-        lbl.classList.add('opt-correct');
-        tag.textContent = q.type==='single' ? 'Correct answer' : 'Should be chosen';
-      }
-      if(wasChosen && !isCorrectKey){
-        lbl.classList.add('opt-wrong');
-        tag.textContent = q.type==='single' ? 'Your choice' : 'Your choice (wrong)';
-      }
     });
-    if(!result.correct){
-      if(q.type==='single'){
-        const correctOpt = q.options.find(o=>o.k===q.correct);
-        note.innerHTML = `<b>Not quite.</b> Correct answer: <b>${correctOpt.t}</b>`;
-      } else {
-        const correctTexts = q.correct.map(k=>q.options.find(o=>o.k===k).t);
-        note.innerHTML = `<b>Not quite.</b> Correct answer: <b>${correctTexts.join(' · ')}</b>`;
-      }
-      note.classList.add('show');
-    }
   }
 
   if(q.type==='matrix'){
-    card.classList.add(result.correct?'correct':'incorrect');
     const rows = card.querySelectorAll('.matrix tbody tr');
     q.statements.forEach((s,i)=>{
       const row = rows[i];
       row.querySelectorAll('input').forEach(inp=>{ inp.disabled = true; });
-      const chosen = (answers[q.id]||{})[i];
-      row.querySelectorAll('.pick').forEach(td=>{
-        const col = td.dataset.col;
-        if(col===s.correct) td.classList.add('right-cell');
-        if(col===chosen && chosen!==s.correct) td.classList.add('wrong-cell');
-      });
     });
-    if(!result.correct){
-      note.innerHTML = `<b>Check the rows marked in red</b> — the green box shows the answer that should have been chosen.`;
-      note.classList.add('show');
-    }
   }
 
   if(q.type==='match'){
-    card.classList.add(result.correct?'correct':'incorrect');
     const rows = card.querySelectorAll('.match-box tbody tr');
     q.items.forEach((it,i)=>{
       const row = rows[i];
       row.querySelector('select').disabled = true;
-      const chosen = (answers[q.id]||{})[i];
-      if(chosen===it.correct){ row.classList.add('right-row'); }
-      else { row.classList.add('wrong-row'); }
     });
-    if(!result.correct){
-      const correctList = q.items.map(it=>`${it.t} = ${it.correct}`).join(' · ');
-      note.innerHTML = `<b>Not quite.</b> Correct matches: <b>${correctList}</b>`;
-      note.classList.add('show');
-    }
   }
 }
 
@@ -1068,10 +1133,7 @@ function renderPalette(){
     btn.className='pnum';
     btn.textContent = i+1;
     if(i===currentIndex) btn.classList.add('pn-current');
-    if(submitted){
-      const r = computeResult(q);
-      btn.classList.add(r.correct ? 'pn-correct' : 'pn-incorrect');
-    } else if(isAnsweredQ(q)){
+    if(isAnsweredQ(q)){
       btn.classList.add('pn-answered');
     }
     btn.addEventListener('click', ()=>{
@@ -1127,6 +1189,14 @@ function grade(auto){
 
   stopTimer();
   submitted = true;
+  examActive = false;
+  updateFullscreenButton();
+  updateResetButton();
+  document.getElementById('violationModal').classList.remove('show');
+  if(isFullscreenActive()){
+    const exitFs = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if(exitFs) exitFs.call(document).catch(()=>{});
+  }
   let earned=0, total=0;
   FLAT.forEach(q=>{
     const r = computeResult(q);
@@ -1134,18 +1204,26 @@ function grade(auto){
     total += r.total;
   });
 
-  const pct = Math.round((earned/total)*100);
-  document.getElementById('scoreBig').textContent = pct+'%';
-  document.getElementById('scoreSub').textContent = `${earned} out of ${total} points correct`;
+  /* --- Perhitungan Nilai ---
+     Nilai Akhir = (total skor - penalti) / skor maksimal x 100
+     Penalti dikurangkan dari skor mentah dulu, baru hasilnya dibagi skor
+     maksimal dan dikonversi ke skala 0-100. */
+  const penalti = violationCount * VIOLATION_PENALTY;    // total poin potongan (skala skor mentah)
+  const skorSetelahPenalti = earned - penalti;            // total skor - penalti
+  const nilaiMentah = (skorSetelahPenalti / total) * 100; // dikonversi ke skala 0-100
+  const nilai = Math.max(0, Math.min(100, Math.round(nilaiMentah)));
+
+  const scoreBig = document.getElementById('scoreBig');
+  const scoreSub = document.getElementById('scoreSub');
+  scoreBig.textContent = nilai;
+  scoreSub.textContent = 'Nilai Akhir (0-100)';
+
   const msg = document.getElementById('scoreMsg');
-  let msgText, msgColor, msgBg;
-  if(pct>=90){ msgText='Excellent! ⭐'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
-  else if(pct>=75){ msgText='Great job, almost perfect!'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
-  else if(pct>=60){ msgText='Pretty good, keep practicing.'; msgColor='var(--t3)'; msgBg='var(--t3-bg)'; }
-  else { msgText='Please re-read the texts and try again.'; msgColor='var(--bad)'; msgBg='var(--bad-bg)'; }
-  msg.textContent = msgText;
-  msg.style.color = msgColor;
-  msg.style.background = msgBg;
+  msg.textContent = nilai > 75
+    ? '🎉 Selamat! Kamu meraih nilai yang sangat baik.'
+    : '💪 Tetap semangat! Terus berlatih supaya hasilnya lebih baik lagi.';
+  msg.style.color = nilai > 75 ? 'var(--good)' : 'var(--navy)';
+  msg.style.background = nilai > 75 ? 'var(--good-bg)' : '#eef0fb';
 
   const resultsBox = document.getElementById('resultsBox');
   resultsBox.classList.add('show');
@@ -1158,7 +1236,7 @@ function grade(auto){
   saveState();
   resultsBox.scrollIntoView({behavior:'smooth', block:'start'});
 
-  attemptSend(name, stuClass, {pct, earned, total});
+  attemptSend(name, stuClass, {nilai, earned, total, penalti, violationCount});
 }
 
 /* ---------- build a readable per-question answer report ---------- */
@@ -1181,7 +1259,8 @@ function buildAnswerReport(){
     }
     return `No.${q.no} [${mark}] ${ansText}`;
   });
-  return lines.join('\n');
+  const header = `Pelanggaran tab/app: ${violationCount} (penalti: -${violationCount*VIOLATION_PENALTY} poin)`;
+  return header + '\n' + lines.join('\n');
 }
 
 /* ---------- send result to Google Form ---------- */
@@ -1235,7 +1314,9 @@ function sendResultToForm(name, stuClass, score){
   const note = document.getElementById('sendNote');
   const retryBtn = document.getElementById('retrySendBtn');
   const answerReport = buildAnswerReport();
-  const scoreText = `${score.pct}% (${score.earned}/${score.total})`;
+  const scoreText = score.penalti>0
+    ? `Nilai: ${score.nilai} (Skor mentah: ${score.earned}/${score.total}, Penalti: -${score.penalti} poin dari ${score.violationCount} pelanggaran)`
+    : `Nilai: ${score.nilai} (Skor: ${score.earned}/${score.total})`;
 
   const iframeName = 'gform-send-target';
   let iframe = document.getElementById(iframeName);
@@ -1282,6 +1363,11 @@ function resetQuiz(){
   submitted = false;
   currentIndex = 0;
   pendingSend = null;
+  violationCount = 0;
+  examActive = true;
+  updateViolationBadge();
+  updateResetButton();
+  document.getElementById('violationModal').classList.remove('show');
   document.getElementById('resultsBox').classList.remove('show');
   document.getElementById('submitBtn').disabled = false;
   document.getElementById('sendNote').textContent = '';
@@ -1291,25 +1377,45 @@ function resetQuiz(){
   renderStage();
   renderPalette();
   updateProgress();
+  requestExamFullscreen();
+  updateFullscreenButton();
   startTimer(Date.now()+TIMER_MS);
   saveState();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
+function openSubmitConfirm(titleHtml, msgHtml){
+  document.getElementById('confirmTitle').innerHTML = titleHtml;
+  document.getElementById('confirmMsg').innerHTML = msgHtml;
+  document.getElementById('confirmModal').classList.add('show');
+}
+
 document.getElementById('submitBtn').addEventListener('click', ()=>{
   if(submitted) return;
   const unanswered = FLAT.length - FLAT.filter(isAnsweredQ).length;
-  const msgEl = document.getElementById('confirmMsg');
+  let msg;
   if(unanswered > 0){
-    msgEl.innerHTML = `You still have <b>${unanswered} unanswered question(s)</b>.<br>Are you sure you want to submit your exam now?`;
+    msg = `Kamu masih punya <b>${unanswered} soal yang belum dijawab</b>.<br>Apakah kamu yakin ingin mengirim jawabanmu sekarang?`;
   } else {
-    msgEl.innerHTML = `You have answered all <b>${FLAT.length} questions</b>.<br>Are you sure you want to submit your exam now?`;
+    msg = `Kamu sudah menjawab semua <b>${FLAT.length} soal</b>.<br>Apakah kamu yakin ingin mengirim jawabanmu sekarang?`;
   }
-  document.getElementById('confirmModal').classList.add('show');
+  openSubmitConfirm('Konfirmasi Submit Ujian', msg);
+});
+
+document.getElementById('violationEndBtn').addEventListener('click', ()=>{
+  document.getElementById('violationModal').classList.remove('show');
+  const penalty = violationCount * VIOLATION_PENALTY;
+  openSubmitConfirm(
+    'Konfirmasi Sudahi Ujian',
+    `Kamu sudah mendapat <b>${violationCount} pelanggaran</b> (potongan -${penalty} poin).<br>Apakah kamu yakin ingin <b>mengakhiri ujian sekarang</b>? Jawaban yang sudah kamu isi akan langsung dikirim dan tidak bisa diubah lagi.`
+  );
 });
 
 document.getElementById('cancelSubmitBtn').addEventListener('click', ()=>{
   document.getElementById('confirmModal').classList.remove('show');
+  if(isExamRunning() && !isFullscreenActive()){
+    requestExamFullscreen();
+  }
 });
 
 document.getElementById('confirmSubmitBtn').addEventListener('click', ()=>{
@@ -1338,6 +1444,123 @@ document.addEventListener('keydown', e=>{
   }
 });
 
+/* ---------- proctoring: detect tab/app switching + fullscreen exit ---------- */
+const MAX_VIOLATIONS = 5;
+const VIOLATION_PENALTY = 2; // points deducted per violation, not auto-submit
+let violationCount = 0;
+let lastViolationAt = 0;
+let examActive = false; // true once gate passed, false once submitted
+
+function isExamRunning(){
+  return examActive && !submitted;
+}
+
+function updateResetButton(){
+  const btn = document.getElementById('resetBtn');
+  if(btn) btn.style.display = submitted ? '' : 'none';
+}
+
+/* Web Audio beep alarm - no external file needed */
+let audioCtx = null;
+function playAlarm(){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    [0, 0.35, 0.7].forEach(offset=>{
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(880, now+offset);
+      gain.gain.setValueAtTime(0.0001, now+offset);
+      gain.gain.exponentialRampToValueAtTime(0.25, now+offset+0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now+offset+0.28);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(now+offset);
+      osc.stop(now+offset+0.3);
+    });
+  }catch(err){ /* audio not available, ignore */ }
+}
+
+function requestExamFullscreen(){
+  const el = document.documentElement;
+  const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+  if(req){ req.call(el).catch(()=>{}); }
+}
+
+function isFullscreenActive(){
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement);
+}
+
+function updateViolationBadge(){
+  const badge = document.getElementById('violationBadge');
+  if(!badge) return;
+  if(violationCount>0){
+    badge.textContent = `⚠️ ${violationCount} (-${violationCount*VIOLATION_PENALTY})`;
+    badge.classList.add('show');
+  } else {
+    badge.classList.remove('show');
+  }
+}
+
+function updateFullscreenButton(){
+  const btn = document.getElementById('fullscreenBtn');
+  if(!btn) return;
+  btn.style.display = (isExamRunning() && !isFullscreenActive()) ? '' : 'none';
+}
+
+function registerViolation(reason){
+  if(!isExamRunning()) return;
+  const now = Date.now();
+  if(now - lastViolationAt < 800) return; // debounce duplicate events (blur + visibilitychange firing together)
+  lastViolationAt = now;
+
+  violationCount++;
+  updateViolationBadge();
+  updateFullscreenButton();
+  playAlarm();
+  saveState();
+
+  const modal = document.getElementById('violationModal');
+  const msg = document.getElementById('violationMsg');
+  const countEl = document.getElementById('violationCount');
+  msg.textContent = `Terdeteksi: ${reason}. Ujian TIDAK otomatis dikirim, tapi ${VIOLATION_PENALTY} poin telah dikurangi dari nilaimu.`;
+  countEl.textContent = `Pelanggaran ke-${violationCount} — Total pengurangan: -${violationCount*VIOLATION_PENALTY} poin`;
+  modal.classList.add('show');
+}
+
+document.getElementById('violationOkBtn').addEventListener('click', ()=>{
+  document.getElementById('violationModal').classList.remove('show');
+  requestExamFullscreen();
+});
+
+document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
+  requestExamFullscreen();
+});
+
+document.addEventListener('visibilitychange', ()=>{
+  if(document.hidden){
+    registerViolation('kamu berpindah tab atau meminimalkan jendela');
+  }
+});
+
+window.addEventListener('blur', ()=>{
+  // Small delay so we don't fire this for our own modal/dialog interactions
+  setTimeout(()=>{
+    if(isExamRunning() && document.hidden===false && !document.hasFocus()){
+      registerViolation('kamu berpindah ke aplikasi lain');
+    }
+  }, 150);
+});
+
+['fullscreenchange','webkitfullscreenchange','msfullscreenchange'].forEach(evt=>{
+  document.addEventListener(evt, ()=>{
+    if(isExamRunning() && !isFullscreenActive()){
+      registerViolation('kamu keluar dari mode fullscreen');
+    }
+    updateFullscreenButton();
+  });
+});
+
 /* ---------- persistence (localStorage) ---------- */
 const STORAGE_KEY = 'eng_exam_10_descriptive_people_v1';
 
@@ -1353,7 +1576,8 @@ function saveState(){
       submitted: submitted,
       endAt: examEndAt,
       remainingTimeMs: isTimerPaused ? remainingTimeMs : (examEndAt ? Math.max(0, examEndAt - Date.now()) : TIMER_MS),
-      isTimerPaused: isTimerPaused
+      isTimerPaused: isTimerPaused,
+      violationCount: violationCount
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){ /* localStorage unavailable, ignore */ }
@@ -1496,30 +1720,39 @@ if(saved){
   answers = saved.answers || {};
   currentIndex = Math.min(saved.currentIndex||0, FLAT.length-1);
   submitted = !!saved.submitted;
+  violationCount = saved.violationCount || 0;
+  updateViolationBadge();
+  updateResetButton();
   document.getElementById('stuName').value = saved.name || '';
   document.getElementById('stuClass').value = saved.cls || '';
   document.getElementById('gateScreen').style.display = 'none';
   document.getElementById('appMain').style.display = 'block';
 
   if(submitted){
-    let earned=0, total=0;
-    FLAT.forEach(q=>{ const r=computeResult(q); earned+=r.earned; total+=r.total; });
-    const pct = Math.round((earned/total)*100);
-    document.getElementById('scoreBig').textContent = pct+'%';
-    document.getElementById('scoreSub').textContent = `${earned} out of ${total} points correct`;
+    let earnedR=0, totalR=0;
+    FLAT.forEach(q=>{
+      const r = computeResult(q);
+      earnedR += r.earned;
+      totalR += r.total;
+    });
+    const penaltiR = violationCount * VIOLATION_PENALTY;
+    const nilaiMentahR = ((earnedR - penaltiR) / totalR) * 100;
+    const nilaiR = Math.max(0, Math.min(100, Math.round(nilaiMentahR)));
+    document.getElementById('scoreBig').textContent = nilaiR;
+    document.getElementById('scoreSub').textContent = 'Nilai Akhir (0-100)';
     const msg = document.getElementById('scoreMsg');
-    let msgText, msgColor, msgBg;
-    if(pct>=90){ msgText='Excellent! ⭐'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
-    else if(pct>=75){ msgText='Great job, almost perfect!'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
-    else if(pct>=60){ msgText='Pretty good, keep practicing.'; msgColor='var(--t3)'; msgBg='var(--t3-bg)'; }
-    else { msgText='Please re-read the texts and try again.'; msgColor='var(--bad)'; msgBg='var(--bad-bg)'; }
-    msg.textContent = msgText;
-    msg.style.color = msgColor;
-    msg.style.background = msgBg;
+    msg.textContent = nilaiR > 75
+      ? '🎉 Selamat! Kamu meraih nilai yang sangat baik.'
+      : '💪 Tetap semangat! Terus berlatih supaya hasilnya lebih baik lagi.';
+    msg.style.color = nilaiR > 75 ? 'var(--good)' : 'var(--navy)';
+    msg.style.background = nilaiR > 75 ? 'var(--good-bg)' : '#eef0fb';
     document.getElementById('resultsBox').classList.add('show');
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('timerBadge').textContent = 'Finished';
   } else {
+    examActive = true;
+    requestExamFullscreen();
+    updateFullscreenButton();
     let rem = saved.remainingTimeMs;
     if(rem === undefined && saved.endAt){
       rem = saved.endAt - Date.now();
@@ -1577,13 +1810,41 @@ function checkGate(){
   document.getElementById('gateScreen').style.display = 'none';
   document.getElementById('appMain').style.display = 'block';
   window.scrollTo({top:0});
+
+  /* Show the rules/consent popup; the exam itself (fullscreen + timer)
+     only starts once the student ticks the box and confirms. */
+  const rulesModal = document.getElementById('rulesModal');
+  const rulesCheck = document.getElementById('rulesAgreeCheck');
+  const rulesBtn = document.getElementById('rulesStartBtn');
+  rulesCheck.checked = false;
+  rulesBtn.disabled = true;
+  rulesModal.classList.add('show');
+}
+
+function beginExamAfterConsent(){
+  document.getElementById('rulesModal').classList.remove('show');
+  examActive = true;
+  requestExamFullscreen();
+  updateFullscreenButton();
   startTimer(Date.now()+TIMER_MS);
   saveState();
 }
 
+document.getElementById('rulesAgreeCheck').addEventListener('change', function(){
+  document.getElementById('rulesStartBtn').disabled = !this.checked;
+});
+
+document.getElementById('rulesStartBtn').addEventListener('click', ()=>{
+  if(document.getElementById('rulesAgreeCheck').checked){
+    beginExamAfterConsent();
+  }
+});
+
 document.getElementById('backToLoginBtn').addEventListener('click', ()=>{
   saveState();
   stopTimer();
+  examActive = false;
+  updateFullscreenButton();
   document.getElementById('gateName').value = document.getElementById('stuName').value || '';
   const currentCls = document.getElementById('stuClass').value || '';
   document.getElementById('gateClass').value = currentCls;
