@@ -208,6 +208,14 @@
     font-size:15px; font-weight:600; padding:9px 16px; border-radius:99px;
     display:inline-block;
   }
+  .submit-row{margin-top:18px; display:flex; flex-direction:column; align-items:center; gap:8px;}
+  .submit-row .primary{padding:12px 22px; font-size:14.5px;}
+  .submit-row .primary:disabled{opacity:.55; cursor:not-allowed; transform:none;}
+  .send-note{font-family:'JetBrains Mono',monospace; font-size:12.5px; min-height:16px;}
+  .send-note.ok{color:var(--good);}
+  .send-note.err{color:var(--bad);}
+  .retry-send{border-color:var(--bad); color:var(--bad);}
+  .retry-send:hover{background:var(--bad-bg);}
 
   /* ---------- stage (one question page) ---------- */
   .stage{margin-top:22px;}
@@ -346,9 +354,83 @@
   button.ghost:hover{border-color:rgba(255,255,255,.5); color:#fff;}
 
   ::selection{background:var(--cream);}
+
+  /* ---------- gate screen ---------- */
+  .gate-screen{
+    position:fixed; inset:0; z-index:100;
+    background:var(--navy);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px;
+  }
+  .gate-card{
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.16);
+    border-radius:16px;
+    padding:28px 26px;
+    max-width:380px;
+    width:100%;
+    color:var(--cream);
+  }
+  .gate-card h1{
+    font-size:24px; font-weight:600; color:var(--cream);
+    margin:6px 0 8px;
+  }
+  .gate-card .desc{color:#c9c6da; font-size:14px; margin:0 0 18px;}
+  .gate-field{margin-bottom:14px;}
+  .gate-field label{
+    display:block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#a9a6c4;
+    margin-bottom:6px;
+  }
+  .gate-field input{
+    width:100%;
+    background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.2);
+    border-radius:8px;
+    padding:10px 12px;
+    color:#fff;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    outline:none;
+  }
+  .gate-field input::placeholder{color:#8b88a3;}
+  .gate-field input:focus{border-color:var(--descriptive);background:rgba(255,255,255,.13);}
+  .gate-error{
+    color:#ff8c82; font-size:13px; min-height:18px; margin-bottom:6px;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .gate-card .primary{width:100%; margin-top:6px;}
 </style>
 </head>
 <body>
+
+<div id="gateScreen" class="gate-screen">
+  <div class="gate-card">
+    <div class="eyebrow">TKA · Latihan Pengayaan Bahasa Inggris</div>
+    <h1>Masuk Latihan</h1>
+    <p class="desc">Isi data dan token akses untuk mulai mengerjakan.</p>
+    <div class="gate-field">
+      <label for="gateName">Name</label>
+      <input id="gateName" type="text" placeholder="Tulis nama lengkap" autocomplete="off">
+    </div>
+    <div class="gate-field">
+      <label for="gateClass">Class</label>
+      <input id="gateClass" type="text" placeholder="Tulis kelas" autocomplete="off">
+    </div>
+    <div class="gate-field">
+      <label for="gateToken">Token</label>
+      <input id="gateToken" type="text" placeholder="Masukkan token" autocomplete="off">
+    </div>
+    <div class="gate-error" id="gateError"></div>
+    <button class="primary" id="gateSubmitBtn" type="button">Mulai Latihan</button>
+  </div>
+</div>
+
+<div id="appMain" style="display:none;">
 
 <div class="cover">
   <div class="wrap">
@@ -395,6 +477,10 @@
     <div class="score-big" id="scoreBig">0%</div>
     <div class="score-sub" id="scoreSub">0 dari 0 poin benar</div>
     <div class="score-msg" id="scoreMsg">—</div>
+    <div class="submit-row">
+      <div class="send-note" id="sendNote"></div>
+      <button class="ghost retry-send" id="retrySendBtn" type="button" style="display:none;">Coba Kirim Lagi</button>
+    </div>
   </div>
 
   <div class="stage" id="stage"></div>
@@ -407,9 +493,11 @@
     <div class="nav-btns">
       <button class="ghost" id="resetBtn" type="button">Acak Ulang</button>
       <button class="navbtn" id="nextBtn" type="button">Berikutnya &rarr;</button>
-      <button class="primary" id="submitBtn" type="button">Cek Jawaban</button>
+      <button class="primary" id="submitBtn" type="button">Cek &amp; Kirim Jawaban</button>
     </div>
   </div>
+</div>
+
 </div>
 
 <script>
@@ -944,8 +1032,16 @@ document.getElementById('nextBtn').addEventListener('click', ()=>{
   if(currentIndex<FLAT.length-1){ currentIndex++; renderStage(); renderPalette(); updateProgress(); window.scrollTo({top:0, behavior:'smooth'}); }
 });
 
-/* ---------- grading ---------- */
+/* ---------- grading + kirim ---------- */
 function grade(){
+  const name = document.getElementById('stuName').value.trim();
+  const stuClass = document.getElementById('stuClass').value.trim();
+  if(!name || !stuClass){
+    alert('Isi Name dan Class di bagian atas dulu ya, sebelum cek & kirim jawaban.');
+    document.querySelector('.cover').scrollIntoView({behavior:'smooth', block:'start'});
+    return;
+  }
+
   submitted = true;
   let earned=0, total=0;
   FLAT.forEach(q=>{
@@ -974,14 +1070,102 @@ function grade(){
   renderStage();
   renderPalette();
   resultsBox.scrollIntoView({behavior:'smooth', block:'start'});
+
+  attemptSend(name, stuClass, {pct, earned, total});
+}
+
+/* ---------- kirim hasil ke Google Form ---------- */
+const GFORM_BASE = 'https://docs.google.com/forms/d/e/1FAIpQLSd7qEcdRdMUASAIiiKVM4eGQkR9F5TlBlm5jemKZQu1_ft3Xw/formResponse';
+const GFORM_ENTRY_SUMMARY = 'entry.925588259';
+let pendingSend = null;
+
+/* Cek koneksi internet nyata (bukan cuma status browser), dengan timeout. */
+function isReallyOnline(){
+  return new Promise(resolve=>{
+    if(!navigator.onLine){ resolve(false); return; }
+    let done = false;
+    const finish = (val)=>{ if(!done){ done = true; resolve(val); } };
+    const timer = setTimeout(()=>finish(false), 4000);
+    const img = new Image();
+    img.onload = ()=>{ clearTimeout(timer); finish(true); };
+    img.onerror = ()=>{ clearTimeout(timer); finish(true); }; // request sempat jalan = ada jaringan
+    img.src = 'https://www.google.com/favicon.ico?_=' + Date.now();
+  });
+}
+
+function attemptSend(name, stuClass, score){
+  const note = document.getElementById('sendNote');
+  const retryBtn = document.getElementById('retrySendBtn');
+  pendingSend = {name, stuClass, score};
+
+  note.textContent = 'Mengecek koneksi internet...';
+  note.className = 'send-note';
+  retryBtn.style.display = 'none';
+
+  isReallyOnline().then(online=>{
+    if(!online){
+      note.textContent = 'Tidak ada koneksi internet. Jawaban BELUM terkirim.';
+      note.className = 'send-note err';
+      retryBtn.style.display = 'inline-block';
+      return;
+    }
+    sendResultToForm(pendingSend.name, pendingSend.stuClass, pendingSend.score);
+  });
+}
+
+document.getElementById('retrySendBtn').addEventListener('click', ()=>{
+  if(pendingSend){
+    attemptSend(pendingSend.name, pendingSend.stuClass, pendingSend.score);
+  }
+});
+
+function sendResultToForm(name, stuClass, score){
+  const note = document.getElementById('sendNote');
+  const retryBtn = document.getElementById('retrySendBtn');
+  const summary = `TRY OUT 1 TKA BING WAJIB | Nama: ${name} | Kelas: ${stuClass} | Nilai: ${score.pct}% (${score.earned}/${score.total})`;
+
+  const iframeName = 'gform-send-target';
+  let iframe = document.getElementById(iframeName);
+  if(!iframe){
+    iframe = document.createElement('iframe');
+    iframe.name = iframeName;
+    iframe.id = iframeName;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+  }
+
+  const form = document.createElement('form');
+  form.action = GFORM_BASE;
+  form.method = 'POST';
+  form.target = iframeName;
+  form.style.display = 'none';
+
+  const input = document.createElement('input');
+  input.type = 'hidden';
+  input.name = GFORM_ENTRY_SUMMARY;
+  input.value = summary;
+  form.appendChild(input);
+
+  document.body.appendChild(form);
+  form.submit();
+  document.body.removeChild(form);
+
+  pendingSend = null;
+  retryBtn.style.display = 'none';
+  note.textContent = 'Jawaban terkirim! Terima kasih.';
+  note.className = 'send-note ok';
 }
 
 function resetQuiz(){
   answers = {};
   submitted = false;
   currentIndex = 0;
+  pendingSend = null;
   document.getElementById('resultsBox').classList.remove('show');
   document.getElementById('submitBtn').disabled = false;
+  document.getElementById('sendNote').textContent = '';
+  document.getElementById('sendNote').className = 'send-note';
+  document.getElementById('retrySendBtn').style.display = 'none';
   buildFlat();
   shuffle(FLAT);
   renderStage();
@@ -1004,7 +1188,8 @@ function isEditable(el){
   });
 });
 document.addEventListener('keydown', e=>{
-  const k = e.key.toLowerCase();
+  const k = (e.key || '').toLowerCase();
+  if(!k) return;
   const blockedCombo = (e.ctrlKey||e.metaKey) && ['c','x','a','s','u','p'].includes(k);
   if((blockedCombo && !isEditable(e.target)) || k==='f12'){
     e.preventDefault();
@@ -1017,6 +1202,44 @@ shuffle(FLAT);
 renderStage();
 renderPalette();
 updateProgress();
+
+/* ---------- gate: token akses ---------- */
+const ACCESS_TOKEN = 'TO1BING';
+function checkGate(){
+  const name = document.getElementById('gateName').value.trim();
+  const cls = document.getElementById('gateClass').value.trim();
+  const token = document.getElementById('gateToken').value.trim();
+  const err = document.getElementById('gateError');
+
+  if(!name || !cls || !token){
+    err.textContent = 'Isi Name, Class, dan Token terlebih dahulu.';
+    return;
+  }
+  if(token.toUpperCase() !== ACCESS_TOKEN){
+    err.textContent = 'Token salah. Silakan cek lagi dan coba lagi.';
+    document.getElementById('gateToken').focus();
+    return;
+  }
+
+  err.textContent = '';
+  document.getElementById('stuName').value = name;
+  document.getElementById('stuClass').value = cls;
+  document.getElementById('gateScreen').style.display = 'none';
+  document.getElementById('appMain').style.display = 'block';
+  window.scrollTo({top:0});
+}
+
+document.getElementById('gateSubmitBtn').addEventListener('click', checkGate);
+document.getElementById('gateToken').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') checkGate();
+});
+document.getElementById('gateClass').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') checkGate();
+});
+document.getElementById('gateName').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') checkGate();
+});
+
 </script>
 </body>
 </html>
