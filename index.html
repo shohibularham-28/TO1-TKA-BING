@@ -489,6 +489,7 @@
 
 <div class="progress-shell">
   <div class="wrap progress-inner">
+    <button type="button" class="palette-toggle" id="backToLoginBtn"><span>&larr; Menu Login</span></button>
     <div class="online-badge online" id="onlineBadge"><span class="online-dot"></span>Online</div>
     <div class="timer-badge" id="timerBadge">85:00</div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
@@ -1440,6 +1441,21 @@ function checkGate(){
   startTimer(Date.now()+TIMER_MS);
   saveState();
 }
+
+/* ---------- kembali ke menu login ---------- */
+document.getElementById('backToLoginBtn').addEventListener('click', ()=>{
+  const ok = confirm('Kembali ke menu login? Progres yang sudah diisi tetap tersimpan di perangkat ini.');
+  if(!ok) return;
+  saveState();
+  stopTimer();
+  document.getElementById('gateName').value = document.getElementById('stuName').value || '';
+  document.getElementById('gateClass').value = document.getElementById('stuClass').value || '';
+  document.getElementById('gateToken').value = '';
+  document.getElementById('gateError').textContent = '';
+  document.getElementById('appMain').style.display = 'none';
+  document.getElementById('gateScreen').style.display = 'flex';
+  window.scrollTo({top:0});
+});
 
 document.getElementById('gateSubmitBtn').addEventListener('click', checkGate);
 document.getElementById('gateToken').addEventListener('keydown', e=>{
