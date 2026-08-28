@@ -127,7 +127,7 @@
     border-radius:8px;
     padding:10px 12px;
     color:#fff;
-    font-size:15px;
+    font-size:16px;
     font-family:'Inter',sans-serif;
     outline:none;
   }
@@ -163,6 +163,32 @@
     display:flex; align-items:center; gap:6px;
   }
   .palette-toggle:hover{background:#f3f1ea; border-color:#d7d3c4;}
+
+  .timer-badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:13px; font-weight:700; color:var(--ink);
+    background:#eef0fb; border:1px solid #c9cdf0;
+    padding:6px 12px; border-radius:99px; white-space:nowrap;
+  }
+  .timer-badge.warn{background:var(--descriptive-bg); border-color:var(--descriptive); color:#7a4e0a;}
+  .timer-badge.danger{background:var(--bad-bg); border-color:var(--bad); color:var(--bad); animation:timerPulse 1s infinite;}
+  @keyframes timerPulse{ 0%,100%{opacity:1;} 50%{opacity:.55;} }
+
+  /* ---------- online indicator ---------- */
+  .online-badge{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12.5px; font-weight:700;
+    padding:6px 12px; border-radius:99px; white-space:nowrap;
+    display:flex; align-items:center; gap:6px;
+  }
+  .online-badge .online-dot{
+    width:8px; height:8px; border-radius:50%; display:inline-block; flex:none;
+  }
+  .online-badge.online{ background:var(--good-bg); border:1px solid var(--good); color:var(--good); }
+  .online-badge.online .online-dot{ background:var(--good); animation:onlinePulse 1.6s infinite; }
+  .online-badge.offline{ background:var(--bad-bg); border:1px solid var(--bad); color:var(--bad); }
+  .online-badge.offline .online-dot{ background:var(--bad); }
+  @keyframes onlinePulse{ 0%,100%{opacity:1;} 50%{opacity:.4;} }
 
   /* ---------- number palette ---------- */
   .palette-panel{
@@ -297,6 +323,21 @@
   .opt input:disabled{cursor:default;}
   .opt.locked{cursor:default;}
 
+  @media (max-width:640px){
+    .stage{margin-top:16px;}
+    .passage{padding:16px; font-size:15.5px; line-height:1.6;}
+    .passage h3{font-size:16.5px;}
+    .q-card{padding:16px 14px 18px;}
+    .q-top{gap:10px; margin-bottom:12px;}
+    .q-num{min-width:28px; height:28px; font-size:13px;}
+    .q-prompt{font-size:15.5px; line-height:1.42;}
+    .q-hint{margin-left:0; margin-top:2px; line-height:1.4;}
+    .options{margin-left:0; gap:8px;}
+    .opt{padding:11px 12px; font-size:15px; line-height:1.4; gap:9px;}
+    .matrix{margin-left:0;}
+    .answer-note{margin-left:0;}
+  }
+
   .matrix{margin-left:44px; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
   .matrix table{width:100%; border-collapse:collapse; font-size:14px;}
   .matrix th{
@@ -404,7 +445,7 @@
     border-radius:8px;
     padding:10px 12px;
     color:#fff;
-    font-size:15px;
+    font-size:16px;
     font-family:'Inter',sans-serif;
     outline:none;
   }
@@ -443,27 +484,13 @@
 
 <div id="appMain" style="display:none;">
 
-<div class="cover">
-  <div class="wrap">
-    <div class="eyebrow">TKA · Latihan Pengayaan Bahasa Inggris</div>
-    <div class="author-credit">by Hanif S.A</div>
-    <h1>Narrative · Procedure · Descriptive · Recount</h1>
-    <p class="desc">20 soal pemahaman bacaan, tersaji satu soal per halaman dengan urutan acak. Teks bacaan selalu ditampilkan bersama soalnya, jadi kamu tidak perlu bolak-balik mencari teks. Setelah selesai, tekan <b>Cek Jawaban</b> untuk melihat skor dan pembahasan langsung.</p>
-    <div class="id-card">
-      <div class="id-field">
-        <label for="stuName">Name</label>
-        <input id="stuName" type="text" placeholder="Tulis nama lengkap">
-      </div>
-      <div class="id-field">
-        <label for="stuClass">Class</label>
-        <input id="stuClass" type="text" placeholder="Tulis kelas">
-      </div>
-    </div>
-  </div>
-</div>
+<input type="hidden" id="stuName">
+<input type="hidden" id="stuClass">
 
 <div class="progress-shell">
   <div class="wrap progress-inner">
+    <div class="online-badge online" id="onlineBadge"><span class="online-dot"></span>Online</div>
+    <div class="timer-badge" id="timerBadge">85:00</div>
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="progress-label" id="progressLabel">0 / 20 dijawab</div>
     <button type="button" class="palette-toggle" id="paletteToggleBtn">
@@ -732,13 +759,21 @@ const DATA = [
   }
 ];
 
-/* ---------- flatten + shuffle ---------- */
+/* ---------- flatten + shuffle ----------
+   Urutan teks (section) TETAP sesuai urutan aslinya.
+   Yang diacak: urutan soal DI DALAM masing-masing teks,
+   dan urutan opsi jawaban di tiap soal. */
 let FLAT = [];
 function buildFlat(){
   FLAT = [];
   DATA.forEach(section=>{
-    section.questions.forEach(q=>{
-      FLAT.push(Object.assign({}, q, {_section:section}));
+    const qs = shuffle(section.questions.slice()); // acak soal, hanya di dalam teks ini
+    qs.forEach(q=>{
+      const qCopy = Object.assign({}, q, {_section:section});
+      if(Array.isArray(q.options)){
+        qCopy.options = shuffle(q.options.slice()); // acak urutan opsi
+      }
+      FLAT.push(qCopy);
     });
   });
 }
@@ -803,8 +838,6 @@ function renderStage(){
   stage.innerHTML = '';
   stage.style.setProperty('--sc', section.color);
 
-  document.querySelector('.cover').style.display = (currentIndex===0) ? '' : 'none';
-
   const head = document.createElement('div');
   head.className='stage-head';
   head.innerHTML = `
@@ -852,7 +885,7 @@ function renderStage(){
       lbl.className='opt';
       lbl.dataset.key=o.k;
       const checked = answers[q.id]===o.k ? 'checked' : '';
-      lbl.innerHTML = `<input type="radio" name="${q.id}" value="${o.k}" ${checked}> <span>${o.k}. ${o.t}</span> <span class="tag"></span>`;
+      lbl.innerHTML = `<input type="radio" name="${q.id}" value="${o.k}" ${checked}> <span>${o.t}</span> <span class="tag"></span>`;
       if(answers[q.id]===o.k) lbl.classList.add('selected');
       lbl.querySelector('input').addEventListener('change', ()=>{
         answers[q.id]=o.k;
@@ -874,7 +907,7 @@ function renderStage(){
       lbl.className='opt';
       lbl.dataset.key=o.k;
       const isChecked = (answers[q.id]||[]).includes(o.k);
-      lbl.innerHTML = `<input type="checkbox" name="${q.id}" value="${o.k}" ${isChecked?'checked':''}> <span>${o.k}. ${o.t}</span> <span class="tag"></span>`;
+      lbl.innerHTML = `<input type="checkbox" name="${q.id}" value="${o.k}" ${isChecked?'checked':''}> <span>${o.t}</span> <span class="tag"></span>`;
       if(isChecked) lbl.classList.add('selected');
       lbl.querySelector('input').addEventListener('change', ()=>{
         const cur = new Set(answers[q.id]||[]);
@@ -967,9 +1000,10 @@ function applyGradingToCard(q, card, note){
     if(!result.correct){
       if(q.type==='single'){
         const correctOpt = q.options.find(o=>o.k===q.correct);
-        note.innerHTML = `<b>Belum tepat.</b> Jawaban yang benar: <b>${q.correct}. ${correctOpt.t}</b>`;
+        note.innerHTML = `<b>Belum tepat.</b> Jawaban yang benar: <b>${correctOpt.t}</b>`;
       } else {
-        note.innerHTML = `<b>Belum tepat.</b> Jawaban yang benar: <b>${q.correct.join(', ')}</b>`;
+        const correctTexts = q.correct.map(k=>q.options.find(o=>o.k===k).t);
+        note.innerHTML = `<b>Belum tepat.</b> Jawaban yang benar: <b>${correctTexts.join(' · ')}</b>`;
       }
       note.classList.add('show');
     }
@@ -1040,6 +1074,8 @@ function updateProgress(){
 function updateNavButtons(){
   document.getElementById('prevBtn').disabled = currentIndex===0;
   document.getElementById('nextBtn').disabled = currentIndex===FLAT.length-1;
+  const isLast = currentIndex===FLAT.length-1;
+  document.getElementById('submitBtn').style.display = isLast ? '' : 'none';
 }
 
 document.getElementById('prevBtn').addEventListener('click', ()=>{
@@ -1050,15 +1086,17 @@ document.getElementById('nextBtn').addEventListener('click', ()=>{
 });
 
 /* ---------- grading + kirim ---------- */
-function grade(){
+function grade(auto){
   const name = document.getElementById('stuName').value.trim();
   const stuClass = document.getElementById('stuClass').value.trim();
-  if(!name || !stuClass){
+  if(!auto && (!name || !stuClass)){
     alert('Isi Name dan Class di bagian atas dulu ya, sebelum cek & kirim jawaban.');
-    document.querySelector('.cover').scrollIntoView({behavior:'smooth', block:'start'});
+    window.scrollTo({top:0, behavior:'smooth'});
     return;
   }
+  if(submitted) return;
 
+  stopTimer();
   submitted = true;
   let earned=0, total=0;
   FLAT.forEach(q=>{
@@ -1084,6 +1122,8 @@ function grade(){
   resultsBox.classList.add('show');
 
   document.getElementById('submitBtn').disabled = true;
+  document.getElementById('timerBadge').textContent = 'Selesai';
+  document.getElementById('timerBadge').classList.remove('warn','danger');
   renderStage();
   renderPalette();
   saveState();
@@ -1185,15 +1225,15 @@ function resetQuiz(){
   document.getElementById('sendNote').className = 'send-note';
   document.getElementById('retrySendBtn').style.display = 'none';
   buildFlat();
-  shuffle(FLAT);
   renderStage();
   renderPalette();
   updateProgress();
+  startTimer(Date.now()+TIMER_MS);
   saveState();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
-document.getElementById('submitBtn').addEventListener('click', grade);
+document.getElementById('submitBtn').addEventListener('click', ()=>grade(false));
 document.getElementById('resetBtn').addEventListener('click', resetQuiz);
 
 /* ---------- anti copy-paste & anti-select ---------- */
@@ -1227,7 +1267,8 @@ function saveState(){
       order: FLAT.map(q=>q.id),
       answers: answers,
       currentIndex: currentIndex,
-      submitted: submitted
+      submitted: submitted,
+      endAt: examEndAt
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }catch(e){ /* localStorage tidak tersedia, abaikan */ }
@@ -1252,6 +1293,72 @@ function loadState(){
     return state;
   }catch(e){ return null; }
 }
+
+/* ---------- timer 85 menit ---------- */
+const TIMER_MINUTES = 85;
+const TIMER_MS = TIMER_MINUTES*60*1000;
+let timerInterval = null;
+let examEndAt = null;
+
+function formatTime(ms){
+  if(ms<0) ms=0;
+  const totalSec = Math.floor(ms/1000);
+  const m = Math.floor(totalSec/60);
+  const s = totalSec%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+function renderTimerDisplay(ms){
+  const badge = document.getElementById('timerBadge');
+  if(!badge) return;
+  badge.textContent = formatTime(ms);
+  badge.classList.remove('warn','danger');
+  if(ms<=2*60*1000) badge.classList.add('danger');
+  else if(ms<=10*60*1000) badge.classList.add('warn');
+}
+
+function stopTimer(){
+  if(timerInterval){ clearInterval(timerInterval); timerInterval=null; }
+}
+
+function tick(){
+  const remaining = examEndAt - Date.now();
+  if(remaining<=0){
+    renderTimerDisplay(0);
+    stopTimer();
+    if(!submitted){
+      alert('Waktu 85 menit telah habis. Jawaban akan dikirim otomatis.');
+      grade(true);
+    }
+    return;
+  }
+  renderTimerDisplay(remaining);
+}
+
+function startTimer(endAt){
+  examEndAt = endAt;
+  stopTimer();
+  tick();
+  timerInterval = setInterval(tick, 1000);
+}
+
+/* ---------- indikator online ---------- */
+function updateOnlineBadge(){
+  const badge = document.getElementById('onlineBadge');
+  if(!badge) return;
+  if(navigator.onLine){
+    badge.classList.remove('offline');
+    badge.classList.add('online');
+    badge.innerHTML = '<span class="online-dot"></span>Online';
+  }else{
+    badge.classList.remove('online');
+    badge.classList.add('offline');
+    badge.innerHTML = '<span class="online-dot"></span>Offline';
+  }
+}
+window.addEventListener('online', updateOnlineBadge);
+window.addEventListener('offline', updateOnlineBadge);
+updateOnlineBadge();
 
 /* ---------- init ---------- */
 buildFlat();
@@ -1284,14 +1391,27 @@ if(saved){
     msg.style.background = msgBg;
     document.getElementById('resultsBox').classList.add('show');
     document.getElementById('submitBtn').disabled = true;
+    document.getElementById('timerBadge').textContent = 'Selesai';
+  }else if(saved.endAt){
+    const remaining = saved.endAt - Date.now();
+    if(remaining<=0){
+      examEndAt = saved.endAt;
+      renderTimerDisplay(0);
+    }else{
+      startTimer(saved.endAt);
+    }
   }
-}else{
-  shuffle(FLAT);
 }
 
 renderStage();
 renderPalette();
 updateProgress();
+
+if(saved && !saved.submitted && saved.endAt && (saved.endAt - Date.now())<=0){
+  alert('Waktu 85 menit telah habis. Jawaban akan dikirim otomatis.');
+  grade(true);
+}
+
 
 /* ---------- gate: token akses ---------- */
 const ACCESS_TOKEN = 'TO1BING';
@@ -1317,6 +1437,7 @@ function checkGate(){
   document.getElementById('gateScreen').style.display = 'none';
   document.getElementById('appMain').style.display = 'block';
   window.scrollTo({top:0});
+  startTimer(Date.now()+TIMER_MS);
   saveState();
 }
 
