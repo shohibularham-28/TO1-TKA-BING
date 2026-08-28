@@ -39,7 +39,7 @@
     color:var(--ink);
     font-family:'Inter',system-ui,sans-serif;
     line-height:1.55;
-    padding-bottom:132px;
+    padding-bottom:96px;
     -webkit-user-select:none;
     -moz-user-select:none;
     -ms-user-select:none;
@@ -324,16 +324,16 @@
   .nav-bar{
     position:fixed; bottom:0; left:0; right:0; z-index:40;
     background:var(--navy); border-top:1px solid rgba(255,255,255,.1);
-    padding:12px 0;
+    padding:8px 0;
   }
   .nav-inner{
-    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
   }
-  .nav-status{color:#c9c6da; font-size:12.5px; font-family:'JetBrains Mono',monospace;}
-  .nav-btns{display:flex; gap:8px; align-items:center;}
+  .nav-status{color:#c9c6da; font-size:11px; font-family:'JetBrains Mono',monospace;}
+  .nav-btns{display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
   button.navbtn{
     background:rgba(255,255,255,.08); color:#fff; border:1px solid rgba(255,255,255,.2);
-    padding:10px 16px; border-radius:99px; font-size:14px; cursor:pointer;
+    padding:7px 12px; border-radius:99px; font-size:12.5px; cursor:pointer;
     font-family:'Inter',sans-serif; font-weight:600;
     transition:background .15s ease;
   }
@@ -341,17 +341,28 @@
   button.navbtn:disabled{opacity:.35; cursor:not-allowed;}
   button.primary{
     background:var(--descriptive); color:#241a05; border:none; font-weight:700;
-    padding:10px 20px; border-radius:99px; font-size:14.5px; cursor:pointer;
+    padding:7px 14px; border-radius:99px; font-size:12.5px; cursor:pointer;
     font-family:'Inter',sans-serif; transition:transform .12s ease, background .15s ease;
   }
   button.primary:hover{transform:translateY(-1px); background:#dc9b28;}
   button.primary:disabled{opacity:.5; cursor:not-allowed; transform:none;}
   button.ghost{
     background:transparent; color:#c9c6da; border:1px solid rgba(255,255,255,.25);
-    padding:10px 16px; border-radius:99px; font-size:14px; cursor:pointer;
+    padding:7px 12px; border-radius:99px; font-size:12.5px; cursor:pointer;
     font-family:'Inter',sans-serif;
   }
   button.ghost:hover{border-color:rgba(255,255,255,.5); color:#fff;}
+
+  @media (max-width:480px){
+    body{padding-bottom:118px;}
+    .nav-bar{padding:6px 0;}
+    .nav-inner{gap:6px;}
+    .nav-status{font-size:10px; width:100%; text-align:center; order:-1;}
+    .nav-btns{width:100%; justify-content:space-between; gap:5px;}
+    button.navbtn, button.primary, button.ghost{
+      padding:6px 9px; font-size:11px; flex:1; text-align:center;
+    }
+  }
 
   ::selection{background:var(--cream);}
 
@@ -792,6 +803,8 @@ function renderStage(){
   stage.innerHTML = '';
   stage.style.setProperty('--sc', section.color);
 
+  document.querySelector('.cover').style.display = (currentIndex===0) ? '' : 'none';
+
   const head = document.createElement('div');
   head.className='stage-head';
   head.innerHTML = `
@@ -846,6 +859,7 @@ function renderStage(){
         refreshOptionSelection(q, card);
         updateProgress();
         renderPalette();
+        saveState();
       });
       opts.appendChild(lbl);
     });
@@ -869,6 +883,7 @@ function renderStage(){
         refreshOptionSelection(q, card);
         updateProgress();
         renderPalette();
+        saveState();
       });
       opts.appendChild(lbl);
     });
@@ -895,6 +910,7 @@ function renderStage(){
           answers[q.id][i]=inp.value;
           updateProgress();
           renderPalette();
+          saveState();
         });
       });
       tbody.appendChild(tr);
@@ -999,6 +1015,7 @@ function renderPalette(){
       currentIndex = i;
       renderStage();
       renderPalette();
+      saveState();
       window.scrollTo({top:0, behavior:'smooth'});
     });
     paletteGrid.appendChild(btn);
@@ -1026,10 +1043,10 @@ function updateNavButtons(){
 }
 
 document.getElementById('prevBtn').addEventListener('click', ()=>{
-  if(currentIndex>0){ currentIndex--; renderStage(); renderPalette(); updateProgress(); window.scrollTo({top:0, behavior:'smooth'}); }
+  if(currentIndex>0){ currentIndex--; renderStage(); renderPalette(); updateProgress(); saveState(); window.scrollTo({top:0, behavior:'smooth'}); }
 });
 document.getElementById('nextBtn').addEventListener('click', ()=>{
-  if(currentIndex<FLAT.length-1){ currentIndex++; renderStage(); renderPalette(); updateProgress(); window.scrollTo({top:0, behavior:'smooth'}); }
+  if(currentIndex<FLAT.length-1){ currentIndex++; renderStage(); renderPalette(); updateProgress(); saveState(); window.scrollTo({top:0, behavior:'smooth'}); }
 });
 
 /* ---------- grading + kirim ---------- */
@@ -1069,6 +1086,7 @@ function grade(){
   document.getElementById('submitBtn').disabled = true;
   renderStage();
   renderPalette();
+  saveState();
   resultsBox.scrollIntoView({behavior:'smooth', block:'start'});
 
   attemptSend(name, stuClass, {pct, earned, total});
@@ -1171,6 +1189,7 @@ function resetQuiz(){
   renderStage();
   renderPalette();
   updateProgress();
+  saveState();
   window.scrollTo({top:0, behavior:'smooth'});
 }
 
@@ -1196,9 +1215,80 @@ document.addEventListener('keydown', e=>{
   }
 });
 
+/* ---------- persistensi (localStorage) ---------- */
+const STORAGE_KEY = 'tka_bing_tryout1_v1';
+
+function saveState(){
+  try{
+    const state = {
+      name: document.getElementById('stuName').value,
+      cls: document.getElementById('stuClass').value,
+      gatePassed: true,
+      order: FLAT.map(q=>q.id),
+      answers: answers,
+      currentIndex: currentIndex,
+      submitted: submitted
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }catch(e){ /* localStorage tidak tersedia, abaikan */ }
+}
+
+function clearState(){
+  try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return null;
+    const state = JSON.parse(raw);
+    if(!state || !state.gatePassed || !Array.isArray(state.order)) return null;
+
+    const byId = {};
+    FLAT.forEach(q=>{ byId[q.id]=q; });
+    const allIdsMatch = state.order.length===FLAT.length && state.order.every(id=>byId[id]);
+    if(!allIdsMatch) return null;
+
+    return state;
+  }catch(e){ return null; }
+}
+
 /* ---------- init ---------- */
 buildFlat();
-shuffle(FLAT);
+
+const saved = loadState();
+if(saved){
+  FLAT = saved.order.map(id=>FLAT.find(q=>q.id===id));
+  answers = saved.answers || {};
+  currentIndex = Math.min(saved.currentIndex||0, FLAT.length-1);
+  submitted = !!saved.submitted;
+  document.getElementById('stuName').value = saved.name || '';
+  document.getElementById('stuClass').value = saved.cls || '';
+  document.getElementById('gateScreen').style.display = 'none';
+  document.getElementById('appMain').style.display = 'block';
+
+  if(submitted){
+    let earned=0, total=0;
+    FLAT.forEach(q=>{ const r=computeResult(q); earned+=r.earned; total+=r.total; });
+    const pct = Math.round((earned/total)*100);
+    document.getElementById('scoreBig').textContent = pct+'%';
+    document.getElementById('scoreSub').textContent = `${earned} dari ${total} poin benar`;
+    const msg = document.getElementById('scoreMsg');
+    let msgText, msgColor, msgBg;
+    if(pct>=90){ msgText='Luar biasa! ⭐'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
+    else if(pct>=75){ msgText='Bagus sekali, hampir sempurna!'; msgColor='var(--good)'; msgBg='var(--good-bg)'; }
+    else if(pct>=60){ msgText='Cukup baik, terus berlatih ya.'; msgColor='var(--descriptive)'; msgBg='var(--descriptive-bg)'; }
+    else { msgText='Yuk baca ulang teksnya dan coba lagi.'; msgColor='var(--bad)'; msgBg='var(--bad-bg)'; }
+    msg.textContent = msgText;
+    msg.style.color = msgColor;
+    msg.style.background = msgBg;
+    document.getElementById('resultsBox').classList.add('show');
+    document.getElementById('submitBtn').disabled = true;
+  }
+}else{
+  shuffle(FLAT);
+}
+
 renderStage();
 renderPalette();
 updateProgress();
@@ -1227,6 +1317,7 @@ function checkGate(){
   document.getElementById('gateScreen').style.display = 'none';
   document.getElementById('appMain').style.display = 'block';
   window.scrollTo({top:0});
+  saveState();
 }
 
 document.getElementById('gateSubmitBtn').addEventListener('click', checkGate);
