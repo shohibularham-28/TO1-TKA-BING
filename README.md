@@ -87,7 +87,16 @@
 
   .progress-shell{
     position:sticky; top:0; z-index:30; background:var(--paper);
-    border-bottom:1px solid var(--line); padding:10px 0;
+    border-bottom:1px solid var(--line); padding:10px 0; transition:transform 0.3s ease, opacity 0.3s ease;
+  }
+  .progress-shell.collapsed{
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+    height: 0;
+    padding: 0;
+    border: none;
+    overflow: hidden;
   }
   .progress-inner{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
   .progress-track{ flex:1 1 140px; height:8px; background:var(--line); border-radius:99px; overflow:hidden; min-width:100px; }
@@ -101,6 +110,26 @@
     display:flex; align-items:center; gap:6px;
   }
   .palette-toggle:hover{background:#f3f1ea; border-color:#d7d3c4;}
+
+  /* Tombol hide/show header, diletakkan sebaris di sebelah tombol soal */
+  .header-toggle-inline{
+    font-family:'Inter',sans-serif; font-size:11px; font-weight:600;
+    background:var(--navy); color:#fff; border:1px solid rgba(255,255,255,.2);
+    padding:4px 9px; border-radius:99px; cursor:pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    display: inline-flex; align-items: center; gap: 4px;
+    transition: background 0.15s ease;
+    white-space:nowrap;
+  }
+  .header-toggle-inline:hover{background:#183e66;}
+
+  /* Rumah tombol saat header disembunyikan, supaya tetap bisa ditekan lagi */
+  .header-toggle-home{
+    position: fixed;
+    top: 10px;
+    right: 14px;
+    z-index: 50;
+  }
 
   .timer-badge{
     font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:700; color:var(--ink);
@@ -543,7 +572,10 @@
 <input type="hidden" id="stuName">
 <input type="hidden" id="stuClass">
 
-<div class="progress-shell">
+<!-- Rumah tombol hide/show header saat header sedang disembunyikan -->
+<div class="header-toggle-home" id="headerToggleHome" style="display:none;"></div>
+
+<div class="progress-shell" id="progressShell">
   <div class="wrap progress-inner">
     <button type="button" class="palette-toggle" id="backToLoginBtn"><span>&larr; Login Menu</span></button>
     <div class="online-badge online" id="onlineBadge"><span class="online-dot"></span>Online</div>
@@ -553,6 +585,9 @@
     <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
     <div class="progress-label" id="progressLabel">0 / 30 answered</div>
     <button type="button" class="palette-toggle" id="paletteToggleBtn"><span>Show all numbers</span></button>
+    <button type="button" class="header-toggle-inline" id="toggleHeaderBtn">
+      <span id="toggleIcon">▲</span> <span id="toggleText">Hide/show Header</span>
+    </button>
   </div>
   <div class="wrap">
     <div class="palette-panel" id="palettePanel">
@@ -811,15 +846,46 @@ const DATA = [
 const VALID_TOKEN = 'TO1BING';
 
 let FLAT = [];
-function buildFlat(){
+function buildFlat(savedOrder = null, savedOptions = {}, savedMatrix = {}){
   FLAT = [];
-  DATA.forEach(section=>{
-    const qs = shuffle(section.questions.slice());
-    qs.forEach(q=>{
-      const qCopy = Object.assign({}, q, {_section:section});
-      if(Array.isArray(q.options)){
-        qCopy.options = shuffle(q.options.slice());
+
+  DATA.forEach(section => {
+    let sectionQs = [...section.questions];
+
+    // Jika belum ada urutan tersimpan untuk section ini, acak urutan soalnya
+    if (savedOrder && savedOrder[section.id]) {
+      sectionQs = savedOrder[section.id].map(id => section.questions.find(q => q.id === id)).filter(Boolean);
+    } else {
+      shuffle(sectionQs);
+    }
+
+    sectionQs.forEach(q => {
+      const qCopy = Object.assign({}, q, { _section: section });
+
+      if (Array.isArray(q.options)) {
+        let opts = [...q.options];
+        if (savedOptions && savedOptions[q.id]) {
+          opts = savedOptions[q.id].map(k => q.options.find(o => o.k === k)).filter(Boolean);
+        } else {
+          shuffle(opts);
+        }
+        qCopy.options = opts;
       }
+
+      if (q.type === 'matrix') {
+        let stmts = [...q.statements];
+        if (savedMatrix && savedMatrix[q.id]) {
+          stmts = savedMatrix[q.id].map(idx => q.statements[idx]).filter(Boolean);
+          qCopy._matrixOrder = savedMatrix[q.id];
+        } else {
+          const indices = stmts.map((_, idx) => idx);
+          shuffle(indices);
+          stmts = indices.map(idx => q.statements[idx]);
+          qCopy._matrixOrder = indices;
+        }
+        qCopy.statements = stmts;
+      }
+
       FLAT.push(qCopy);
     });
   });
@@ -836,6 +902,9 @@ let answers = {};
 let submitted = false;
 let currentIndex = 0;
 let paletteOpen = false;
+let questionOrderMap = {};
+let optionOrderMap = {};
+let matrixOrderMap = {};
 
 function isAnsweredQ(q){
   if(q.type==='matrix'){
@@ -1152,6 +1221,31 @@ document.getElementById('paletteToggleBtn').addEventListener('click', ()=>{
   document.getElementById('palettePanel').classList.toggle('open', paletteOpen);
 });
 
+let headerHidden = false;
+const toggleHeaderBtn = document.getElementById('toggleHeaderBtn');
+const headerToggleHome = document.getElementById('headerToggleHome');
+const paletteToggleBtnEl = document.getElementById('paletteToggleBtn');
+
+toggleHeaderBtn.addEventListener('click', ()=>{
+  headerHidden = !headerHidden;
+  const shell = document.getElementById('progressShell');
+  const icon = document.getElementById('toggleIcon');
+
+  if(headerHidden){
+    shell.classList.add('collapsed');
+    icon.textContent = '▼';
+    // pindahkan tombol ke pojok agar tetap bisa ditekan saat header hilang
+    headerToggleHome.appendChild(toggleHeaderBtn);
+    headerToggleHome.style.display = 'flex';
+  } else {
+    shell.classList.remove('collapsed');
+    icon.textContent = '▲';
+    // kembalikan tombol ke sebelah tombol "Show all numbers"
+    paletteToggleBtnEl.insertAdjacentElement('afterend', toggleHeaderBtn);
+    headerToggleHome.style.display = 'none';
+  }
+});
+
 /* ---------- progress ---------- */
 function updateProgress(){
   const answered = FLAT.filter(isAnsweredQ).length;
@@ -1358,6 +1452,30 @@ function sendResultToForm(name, stuClass, score){
   note.className = 'send-note ok';
 }
 
+function regenerateOrderMaps(){
+  questionOrderMap = {};
+  optionOrderMap = {};
+  matrixOrderMap = {};
+  DATA.forEach(sec => {
+    let qArr = [...sec.questions];
+    shuffle(qArr);
+    questionOrderMap[sec.id] = qArr.map(q => q.id);
+
+    sec.questions.forEach(q => {
+      if (Array.isArray(q.options)) {
+        let optCopy = [...q.options];
+        shuffle(optCopy);
+        optionOrderMap[q.id] = optCopy.map(o => o.k);
+      }
+      if (q.type === 'matrix') {
+        let indices = q.statements.map((_, idx) => idx);
+        shuffle(indices);
+        matrixOrderMap[q.id] = indices;
+      }
+    });
+  });
+}
+
 function resetQuiz(){
   answers = {};
   submitted = false;
@@ -1373,7 +1491,8 @@ function resetQuiz(){
   document.getElementById('sendNote').textContent = '';
   document.getElementById('sendNote').className = 'send-note';
   document.getElementById('retrySendBtn').style.display = 'none';
-  buildFlat();
+  regenerateOrderMaps();
+  buildFlat(questionOrderMap, optionOrderMap, matrixOrderMap);
   renderStage();
   renderPalette();
   updateProgress();
@@ -1537,9 +1656,23 @@ document.getElementById('fullscreenBtn').addEventListener('click', ()=>{
   requestExamFullscreen();
 });
 
+let hiddenGraceTimer = null;
+const HIDDEN_GRACE_MS = 10000; // layar mati / tab disembunyikan < 10 detik tidak memicu alarm
+
 document.addEventListener('visibilitychange', ()=>{
   if(document.hidden){
-    registerViolation('kamu berpindah tab atau meminimalkan jendela');
+    if(hiddenGraceTimer) clearTimeout(hiddenGraceTimer);
+    hiddenGraceTimer = setTimeout(()=>{
+      hiddenGraceTimer = null;
+      if(document.hidden){
+        registerViolation('kamu berpindah tab atau meminimalkan jendela');
+      }
+    }, HIDDEN_GRACE_MS);
+  } else {
+    if(hiddenGraceTimer){
+      clearTimeout(hiddenGraceTimer);
+      hiddenGraceTimer = null;
+    }
   }
 });
 
@@ -1570,6 +1703,9 @@ function saveState(){
       name: document.getElementById('stuName').value,
       cls: document.getElementById('stuClass').value,
       gatePassed: true,
+      questionOrder: questionOrderMap,
+      optionOrder: optionOrderMap,
+      matrixOrder: matrixOrderMap,
       order: FLAT.map(q=>q.id),
       answers: answers,
       currentIndex: currentIndex,
@@ -1592,13 +1728,7 @@ function loadState(){
     const raw = localStorage.getItem(STORAGE_KEY);
     if(!raw) return null;
     const state = JSON.parse(raw);
-    if(!state || !state.gatePassed || !Array.isArray(state.order)) return null;
-
-    const byId = {};
-    FLAT.forEach(q=>{ byId[q.id]=q; });
-    const allIdsMatch = state.order.length===FLAT.length && state.order.every(id=>byId[id]);
-    if(!allIdsMatch) return null;
-
+    if(!state || !state.gatePassed) return null;
     return state;
   }catch(e){ return null; }
 }
@@ -1712,11 +1842,14 @@ window.addEventListener('online', updateOnlineBadge);
 window.addEventListener('offline', updateOnlineBadge);
 
 /* ---------- init ---------- */
-buildFlat();
-
 const saved = loadState();
 if(saved){
-  FLAT = saved.order.map(id=>FLAT.find(q=>q.id===id));
+  questionOrderMap = saved.questionOrder || {};
+  optionOrderMap = saved.optionOrder || {};
+  matrixOrderMap = saved.matrixOrder || {};
+
+  buildFlat(questionOrderMap, optionOrderMap, matrixOrderMap);
+
   answers = saved.answers || {};
   currentIndex = Math.min(saved.currentIndex||0, FLAT.length-1);
   submitted = !!saved.submitted;
@@ -1768,6 +1901,9 @@ if(saved){
       startTimer(Date.now() + remainingTimeMs);
     }
   }
+} else {
+  regenerateOrderMaps();
+  buildFlat(questionOrderMap, optionOrderMap, matrixOrderMap);
 }
 
 renderStage();
